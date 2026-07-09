@@ -55,13 +55,15 @@ class EnergyForecastService:
             # 日发电量 (kWh) = 辐射 × 装机 × 效率 × 温度修正 / 1000
             daily_output = radiation * capacity_kw * DEFAULT_SOLAR_EFFICIENCY * temp_factor * 6 / 1000
 
-            results.append({
-                "date": day.get("date"),
-                "estimated_radiation_wm2": radiation,
-                "temperature_factor": round(temp_factor, 3),
-                "daily_output_kwh": round(daily_output, 2),
-                "weather_code": code,
-            })
+            results.append(
+                {
+                    "date": day.get("date"),
+                    "estimated_radiation_wm2": radiation,
+                    "temperature_factor": round(temp_factor, 3),
+                    "daily_output_kwh": round(daily_output, 2),
+                    "weather_code": code,
+                }
+            )
 
         return {
             "latitude": latitude,
@@ -91,12 +93,14 @@ class EnergyForecastService:
             power_ratio = _wind_power_ratio(wind_ms)
             daily_output = rated_power_kw * power_ratio * 24  # kWh
 
-            results.append({
-                "date": day.get("date"),
-                "wind_speed_kmh": wind_speed,
-                "power_ratio": round(power_ratio, 3),
-                "daily_output_kwh": round(daily_output, 2),
-            })
+            results.append(
+                {
+                    "date": day.get("date"),
+                    "wind_speed_kmh": wind_speed,
+                    "power_ratio": round(power_ratio, 3),
+                    "daily_output_kwh": round(daily_output, 2),
+                }
+            )
 
         return {
             "latitude": latitude,

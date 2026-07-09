@@ -124,8 +124,10 @@ class HistoricalService:
         end = today - timedelta(days=1)
 
         data = await self.get_historical_weather(
-            latitude, longitude,
-            start.isoformat(), end.isoformat(),
+            latitude,
+            longitude,
+            start.isoformat(),
+            end.isoformat(),
         )
 
         daily = data.get("daily", [])

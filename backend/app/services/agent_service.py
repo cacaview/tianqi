@@ -188,23 +188,25 @@ class AgentService:
             return await self._generate_report(latitude, longitude, language)
         elif self._is_health_index_query(message):
             from app.services.health_index_service import HealthIndexService
+
             service = HealthIndexService()
             lat = latitude or 22.82
             lon = longitude or 108.32
             result = await service.calculate(lat, lon, language)
             tools_used.append("get_health_index")
-            level = result.get('level_zh', result['level'])
-            rec = result.get('recommendation', '')
+            level = result.get("level_zh", result["level"])
+            rec = result.get("recommendation", "")
             reply = f"健康指数: {result['score']}/100 ({level})\n{rec}"
         elif self._is_construction_query(message):
             from app.services.construction_safety_service import ConstructionSafetyService
+
             service = ConstructionSafetyService()
             lat = latitude or 22.82
             lon = longitude or 108.32
             result = await service.assess(lat, lon, language)
             tools_used.append("get_construction_safety")
-            decision = result.get('overall_decision_zh', result['overall_decision'])
-            desc = result.get('description', '')
+            decision = result.get("overall_decision_zh", result["overall_decision"])
+            desc = result.get("description", "")
             reply = f"施工安全评估: {decision}\n{desc}"
         elif self._is_marine_query(message):
             reply = "海事气象功能可用，请提供起终点坐标获取航线风险评估"
@@ -468,13 +470,11 @@ class AgentService:
         precip = weather.get("precipitation", 0)
 
         responses = {
-            "zh": f"当前天气：气温 {temp}°C，湿度 {humidity}%，" f"风速 {wind} km/h，降水量 {precip} mm。",
+            "zh": f"当前天气：气温 {temp}°C，湿度 {humidity}%，风速 {wind} km/h，降水量 {precip} mm。",
             "en": f"Current weather: Temperature {temp}°C, "
             f"Humidity {humidity}%, Wind {wind} km/h, "
             f"Precipitation {precip} mm.",
-            "vi": f"Thời tiết hiện tại: Nhiệt độ {temp}°C, "
-            f"Độ ẩm {humidity}%, Gió {wind} km/h, "
-            f"Lượng mưa {precip} mm.",
+            "vi": f"Thời tiết hiện tại: Nhiệt độ {temp}°C, Độ ẩm {humidity}%, Gió {wind} km/h, Lượng mưa {precip} mm.",
         }
         return responses.get(language, responses["en"])
 
@@ -498,9 +498,9 @@ class AgentService:
 
     def _get_default_reply(self, language: str) -> str:
         replies = {
-            "zh": "你好！我是万语风，你的多语言气象智能助手。" "你可以问我天气相关的问题，比如'南宁今天天气怎么样？'",
-            "en": "Hello! I'm PolyWind, your multilingual weather " "assistant. Ask me about weather in any language!",
-            "vi": "Xin chào! Tôi là PolyWind, trợ lý thời tiết " "đa ngôn ngữ. Hãy hỏi tôi về thời tiết.",
+            "zh": "你好！我是万语风，你的多语言气象智能助手。你可以问我天气相关的问题，比如'南宁今天天气怎么样？'",
+            "en": "Hello! I'm PolyWind, your multilingual weather assistant. Ask me about weather in any language!",
+            "vi": "Xin chào! Tôi là PolyWind, trợ lý thời tiết đa ngôn ngữ. Hãy hỏi tôi về thời tiết.",
             "th": "สวัสดี! ฉันคือ PolyWind ผู้ช่วยด้านสภาพอากาศหลายภาษา ถามฉันเกี่ยวกับสภาพอากาศได้เลย",
             "id": "Halo! Saya PolyWind, asisten cuaca multilingual Anda. Tanyakan tentang cuaca kepada saya.",
         }

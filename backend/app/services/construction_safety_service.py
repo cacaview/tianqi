@@ -78,29 +78,33 @@ class ConstructionSafetyService:
             wind_status = "no_go"
         elif wind_speed >= WIND_SPEED_CAUTION:
             wind_status = "caution"
-        factors.append({
-            "name": "wind",
-            "name_zh": "风速",
-            "status": wind_status,
-            "value": wind_speed,
-            "threshold": WIND_SPEED_LIMIT,
-            "unit": "km/h",
-            "detail": f"当前风速 {wind_speed} km/h",
-        })
+        factors.append(
+            {
+                "name": "wind",
+                "name_zh": "风速",
+                "status": wind_status,
+                "value": wind_speed,
+                "threshold": WIND_SPEED_LIMIT,
+                "unit": "km/h",
+                "detail": f"当前风速 {wind_speed} km/h",
+            }
+        )
 
         # 2. 雷暴评估
         weather_code = current_data.get("weather_code") or today.get("weather_code")
         lightning_status = "go"
         if weather_code in LIGHTNING_RISK_CODES:
             lightning_status = "no_go"
-        factors.append({
-            "name": "lightning",
-            "name_zh": "雷暴",
-            "status": lightning_status,
-            "value": weather_code,
-            "threshold": None,
-            "detail": "存在雷暴风险" if lightning_status == "no_go" else "无雷暴风险",
-        })
+        factors.append(
+            {
+                "name": "lightning",
+                "name_zh": "雷暴",
+                "status": lightning_status,
+                "value": weather_code,
+                "threshold": None,
+                "detail": "存在雷暴风险" if lightning_status == "no_go" else "无雷暴风险",
+            }
+        )
 
         # 3. 热应力评估
         temp = current_data.get("feels_like") or current_data.get("temperature", 0) or 0
@@ -109,15 +113,17 @@ class ConstructionSafetyService:
             heat_status = "no_go"
         elif temp >= HEAT_STRESS_CAUTION:
             heat_status = "caution"
-        factors.append({
-            "name": "heat_stress",
-            "name_zh": "热应力",
-            "status": heat_status,
-            "value": temp,
-            "threshold": HEAT_STRESS_LIMIT,
-            "unit": "°C",
-            "detail": f"体感温度 {temp}°C",
-        })
+        factors.append(
+            {
+                "name": "heat_stress",
+                "name_zh": "热应力",
+                "status": heat_status,
+                "value": temp,
+                "threshold": HEAT_STRESS_LIMIT,
+                "unit": "°C",
+                "detail": f"体感温度 {temp}°C",
+            }
+        )
 
         # 4. 降水评估
         precipitation = today.get("precipitation", 0) or 0
@@ -126,15 +132,17 @@ class ConstructionSafetyService:
             precip_status = "no_go"
         elif precipitation >= RAINFALL_CAUTION:
             precip_status = "caution"
-        factors.append({
-            "name": "rainfall",
-            "name_zh": "降水",
-            "status": precip_status,
-            "value": precipitation,
-            "threshold": RAINFALL_LIMIT,
-            "unit": "mm",
-            "detail": f"预计降水 {precipitation} mm",
-        })
+        factors.append(
+            {
+                "name": "rainfall",
+                "name_zh": "降水",
+                "status": precip_status,
+                "value": precipitation,
+                "threshold": RAINFALL_LIMIT,
+                "unit": "mm",
+                "detail": f"预计降水 {precipitation} mm",
+            }
+        )
 
         # 综合决策 — 取最严格值
         status_order = {"go": 0, "caution": 1, "no_go": 2}

@@ -294,8 +294,10 @@ def get_construction_safety(latitude: float, longitude: float, language: str = "
 
 @tool
 def get_marine_safety(
-    origin_lat: float, origin_lon: float,
-    dest_lat: float, dest_lon: float,
+    origin_lat: float,
+    origin_lon: float,
+    dest_lat: float,
+    dest_lon: float,
     language: str = "zh",
 ) -> str:
     """海事气象决策：评估航线风险，返回Go/No-Go/Caution决策和沿途海况。"""

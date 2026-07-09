@@ -59,23 +59,27 @@ class CrossBorderService:
         regions_with_alerts = list(all_alerts.keys())
 
         if len(regions_with_alerts) >= 2:
-            correlations.append({
-                "type": "multi_region_alert",
-                "type_zh": "多国同步预警",
-                "regions": regions_with_alerts,
-                "severity": "moderate",
-                "description": f"{len(regions_with_alerts)}个区域同时存在灾害预警",
-            })
+            correlations.append(
+                {
+                    "type": "multi_region_alert",
+                    "type_zh": "多国同步预警",
+                    "regions": regions_with_alerts,
+                    "severity": "moderate",
+                    "description": f"{len(regions_with_alerts)}个区域同时存在灾害预警",
+                }
+            )
 
         if earthquakes.get("earthquakes"):
             eq = earthquakes["earthquakes"][0] if earthquakes["earthquakes"] else {}
-            correlations.append({
-                "type": "earthquake",
-                "type_zh": "地震事件",
-                "magnitude": eq.get("magnitude", 0),
-                "location": eq.get("hypocenter", ""),
-                "severity": "high" if (eq.get("magnitude", 0) or 0) >= 6.0 else "moderate",
-            })
+            correlations.append(
+                {
+                    "type": "earthquake",
+                    "type_zh": "地震事件",
+                    "magnitude": eq.get("magnitude", 0),
+                    "location": eq.get("hypocenter", ""),
+                    "severity": "high" if (eq.get("magnitude", 0) or 0) >= 6.0 else "moderate",
+                }
+            )
 
         logger.info("cross_border_correlated", regions=len(all_alerts), correlations=len(correlations))
 

@@ -42,36 +42,42 @@ class InsuranceIndexService:
         triggers = []
         # 干旱触发：降水量低于均值2个标准差
         if precip_std > 0:
-            triggers.append({
-                "type": "drought",
-                "type_zh": "干旱",
-                "threshold": round(precip_mean - 2 * precip_std, 2),
-                "metric": "precipitation_sum",
-                "operator": "lt",
-                "description": f"降水量低于 {round(precip_mean - 2 * precip_std, 2)}mm",
-            })
+            triggers.append(
+                {
+                    "type": "drought",
+                    "type_zh": "干旱",
+                    "threshold": round(precip_mean - 2 * precip_std, 2),
+                    "metric": "precipitation_sum",
+                    "operator": "lt",
+                    "description": f"降水量低于 {round(precip_mean - 2 * precip_std, 2)}mm",
+                }
+            )
 
         # 洪涝触发
         if precip_std > 0:
-            triggers.append({
-                "type": "flood",
-                "type_zh": "洪涝",
-                "threshold": round(precip_mean + 2 * precip_std, 2),
-                "metric": "precipitation_sum",
-                "operator": "gt",
-                "description": f"降水量高于 {round(precip_mean + 2 * precip_std, 2)}mm",
-            })
+            triggers.append(
+                {
+                    "type": "flood",
+                    "type_zh": "洪涝",
+                    "threshold": round(precip_mean + 2 * precip_std, 2),
+                    "metric": "precipitation_sum",
+                    "operator": "gt",
+                    "description": f"降水量高于 {round(precip_mean + 2 * precip_std, 2)}mm",
+                }
+            )
 
         # 热害触发
         if temp_std > 0:
-            triggers.append({
-                "type": "heat_stress",
-                "type_zh": "热害",
-                "threshold": round(temp_mean + 2 * temp_std, 2),
-                "metric": "temperature_max",
-                "operator": "gt",
-                "description": f"最高温度高于 {round(temp_mean + 2 * temp_std, 2)}°C",
-            })
+            triggers.append(
+                {
+                    "type": "heat_stress",
+                    "type_zh": "热害",
+                    "threshold": round(temp_mean + 2 * temp_std, 2),
+                    "metric": "temperature_max",
+                    "operator": "gt",
+                    "description": f"最高温度高于 {round(temp_mean + 2 * temp_std, 2)}°C",
+                }
+            )
 
         return {
             "latitude": latitude,

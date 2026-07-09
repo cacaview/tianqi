@@ -57,13 +57,15 @@ class MarineDecisionService:
             elif wave >= WAVE_HEIGHT_CAUTION or wind >= WIND_SPEED_CAUTION:
                 decision = "caution"
 
-            checkpoints.append({
-                "name": name,
-                "latitude": data.get("latitude"),
-                "longitude": data.get("longitude"),
-                "wave_height": wave,
-                "decision": decision,
-            })
+            checkpoints.append(
+                {
+                    "name": name,
+                    "latitude": data.get("latitude"),
+                    "longitude": data.get("longitude"),
+                    "wave_height": wave,
+                    "decision": decision,
+                }
+            )
 
             if decision == "no_go" or (decision == "caution" and worst_decision == "go"):
                 worst_decision = decision

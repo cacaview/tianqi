@@ -100,9 +100,7 @@ class MutualAidService:
         responder_id: int,
     ) -> dict:
         """响应互助请求"""
-        result = await db.execute(
-            select(MutualAidRequest).where(MutualAidRequest.id == request_id)
-        )
+        result = await db.execute(select(MutualAidRequest).where(MutualAidRequest.id == request_id))
         req = result.scalar_one_or_none()
 
         if not req:

@@ -111,11 +111,13 @@ class ObservationService:
             weight = 1.0
             if obs.get("weather_type") in ("stormy", "flood", "extreme_heat"):
                 weight = 2.0
-            points.append({
-                "lat": obs["latitude"],
-                "lon": obs["longitude"],
-                "weight": weight,
-            })
+            points.append(
+                {
+                    "lat": obs["latitude"],
+                    "lon": obs["longitude"],
+                    "weight": weight,
+                }
+            )
 
         return {
             "center": {"latitude": latitude, "longitude": longitude},
