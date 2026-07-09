@@ -25,7 +25,9 @@ async def upload_photo(
     photo_service: PhotoWallServiceDep = None,  # type: ignore[assignment]
 ) -> PhotoUploadResponse:
     """上传天气照片"""
-    data = await photo_service.upload_photo(user_id, latitude, longitude, photo_url, weather_type, description, language)
+    data = await photo_service.upload_photo(
+        user_id, latitude, longitude, photo_url, weather_type, description, language
+    )
     return PhotoUploadResponse(**data)
 
 

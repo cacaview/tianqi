@@ -55,7 +55,8 @@ class AgentService:
             f"你是万语风(PolyWind)，面向中国—东盟的多语言气象智能决策助手。"
             f"请用{lang_name}回复。当前用户位置：纬度{latitude or 22.82}，经度{longitude or 108.32}。"
             f"如果用户问天气，请使用工具查询实时数据后给出建议。"
-            f"When the user asks for a weather report or summary, use the generate_weather_report tool to compose a structured report."
+            f"When the user asks for a weather report or summary, "
+            f"use the generate_weather_report tool to compose a structured report."
         )
 
         from langchain_core.messages import HumanMessage, SystemMessage
@@ -192,7 +193,9 @@ class AgentService:
             lon = longitude or 108.32
             result = await service.calculate(lat, lon, language)
             tools_used.append("get_health_index")
-            reply = f"健康指数: {result['score']}/100 ({result.get('level_zh', result['level'])})\n{result.get('recommendation', '')}"
+            level = result.get('level_zh', result['level'])
+            rec = result.get('recommendation', '')
+            reply = f"健康指数: {result['score']}/100 ({level})\n{rec}"
         elif self._is_construction_query(message):
             from app.services.construction_safety_service import ConstructionSafetyService
             service = ConstructionSafetyService()
@@ -200,7 +203,9 @@ class AgentService:
             lon = longitude or 108.32
             result = await service.assess(lat, lon, language)
             tools_used.append("get_construction_safety")
-            reply = f"施工安全评估: {result.get('overall_decision_zh', result['overall_decision'])}\n{result.get('description', '')}"
+            decision = result.get('overall_decision_zh', result['overall_decision'])
+            desc = result.get('description', '')
+            reply = f"施工安全评估: {decision}\n{desc}"
         elif self._is_marine_query(message):
             reply = "海事气象功能可用，请提供起终点坐标获取航线风险评估"
             tools_used.append("get_marine_safety")

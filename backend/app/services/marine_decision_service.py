@@ -68,7 +68,12 @@ class MarineDecisionService:
             if decision == "no_go" or (decision == "caution" and worst_decision == "go"):
                 worst_decision = decision
 
-        logger.info("route_assessed", origin=f"{origin_lat},{origin_lon}", dest=f"{dest_lat},{dest_lon}", decision=worst_decision)
+        logger.info(
+            "route_assessed",
+            origin=f"{origin_lat},{origin_lon}",
+            dest=f"{dest_lat},{dest_lon}",
+            decision=worst_decision,
+        )
 
         return {
             "overall_decision": worst_decision,

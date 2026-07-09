@@ -17,11 +17,31 @@ logger = structlog.get_logger("services.journal")
 
 # 多语言气候回顾模板
 REVIEW_TEMPLATES: dict[str, str] = {
-    "zh": "在{period}期间，您记录了{count}天的天气日记。平均温度{avg_temp}°C，最高温{max_temp}°C，最低温{min_temp}°C。总降水量{total_precip}mm。",
-    "en": "During {period}, you recorded {count} days of weather journal. Average temperature {avg_temp}°C, max {max_temp}°C, min {min_temp}°C. Total precipitation {total_precip}mm.",
-    "vi": "Trong {period}, bạn đã ghi nhận {count} ngày nhật ký thời tiết. Nhiệt độ trung bình {avg_temp}°C, cao nhất {max_temp}°C, thấp nhất {min_temp}°C. Tổng lượng mưa {total_precip}mm.",
-    "th": "ในช่วง {period} คุณบันทึก天气ได้ {count} วัน อุณหภูมิเฉลี่ย {avg_temp}°C สูงสุด {max_temp}°C ต่ำสุด {min_temp}°C ปริมาณฝนรวม {total_precip}mm",
-    "id": "Selama {period}, Anda mencatat {count} hari jurnal cuaca. Suhu rata-rata {avg_temp}°C, maks {max_temp}°C, min {min_temp}°C. Total curah hujan {total_precip}mm.",
+    "zh": (
+        "在{period}期间，您记录了{count}天的天气日记。"
+        "平均温度{avg_temp}°C，最高温{max_temp}°C，最低温{min_temp}°C。"
+        "总降水量{total_precip}mm。"
+    ),
+    "en": (
+        "During {period}, you recorded {count} days of weather journal. "
+        "Average temperature {avg_temp}°C, max {max_temp}°C, min {min_temp}°C. "
+        "Total precipitation {total_precip}mm."
+    ),
+    "vi": (
+        "Trong {period}, bạn đã ghi nhận {count} ngày nhật ký thời tiết. "
+        "Nhiệt độ trung bình {avg_temp}°C, cao nhất {max_temp}°C, "
+        "thấp nhất {min_temp}°C. Tổng lượng mưa {total_precip}mm."
+    ),
+    "th": (
+        "ในช่วง {period} คุณบันทึก天气ได้ {count} วัน "
+        "อุณหภูมิเฉลี่ย {avg_temp}°C สูงสุด {max_temp}°C "
+        "ต่ำสุด {min_temp}°C ปริมาณฝนรวม {total_precip}mm"
+    ),
+    "id": (
+        "Selama {period}, Anda mencatat {count} hari jurnal cuaca. "
+        "Suhu rata-rata {avg_temp}°C, maks {max_temp}°C, min {min_temp}°C. "
+        "Total curah hujan {total_precip}mm."
+    ),
 }
 
 
