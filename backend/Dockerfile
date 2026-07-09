@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # 安装 Python 依赖
 RUN pip install --no-cache-dir --prefix=/install .
