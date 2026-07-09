@@ -1,0 +1,43 @@
+# 万语风 (PolyWind) — systemd 服务配置模板
+# 安装方法: sudo cp polywind.service /etc/systemd/system/
+# 启动: sudo systemctl start polywind
+# 开机自启: sudo systemctl enable polywind
+
+[Unit]
+Description=PolyWind Backend API
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=polywind
+Group=polywind
+WorkingDirectory=/opt/polywind/backend
+Environment=POLYWIND_ENV=production
+EnvironmentFile=/opt/polywind/backend/.env
+
+ExecStart=/opt/polywind/venv/bin/uvicorn \
+    app.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 2 \
+    --log-level info
+
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# 安全加固
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/polywind/logs
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=polywind
+
+[Install]
+WantedBy=multi-user.target

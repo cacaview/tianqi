@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>万语风 PolyWind - 气象数据可视化</title>
+    <!-- 引入ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- 引入Leaflet地图 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #1a73e8;
+            --bg: #0f1419;
+            --card: #1a2634;
+            --card-hover: #243447;
+            --text: #e8eaed;
+            --text-sec: #9aa0a6;
+            --border: #3c4043;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .logo-icon { font-size: 24px; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .update-time { font-size: 12px; color: var(--text-sec); }
+
+        /* Main Layout */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 16px;
+            padding: 16px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .card-title { font-size: 14px; font-weight: 600; }
+        .card-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .badge-success { background: rgba(52, 168, 83, 0.2); color: var(--success); }
+        .badge-warning { background: rgba(251, 188, 4, 0.2); color: var(--warning); }
+        .badge-danger { background: rgba(234, 67, 53, 0.2); color: var(--danger); }
+
+        /* Map Container */
+        .map-container {
+            height: 500px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #map { height: 100%; width: 100%; }
+        .leaflet-popup-content-wrapper {
+            background: var(--card);
+            color: var(--text);
+            border-radius: 8px;
+        }
+        .leaflet-popup-tip { background: var(--card); }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .chart-container { height: 200px; }
+
+        /* Alert List */
+        .alert-list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+        .alert-item {
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            background: rgba(255,255,255,0.05);
+        }
+        .alert-item.red { border-color: var(--danger); }
+        .alert-item.orange { border-color: var(--warning); }
+        .alert-item.yellow { border-color: #fcd34d; }
+        .alert-item.blue { border-color: var(--primary); }
+        .alert-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+        .alert-meta { font-size: 11px; color: var(--text-sec); }
+
+        /* Typhoon Panel */
+        .typhoon-list { display: flex; flex-direction: column; gap: 12px; }
+        .typhoon-card {
+            padding: 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+        }
+        .typhoon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .typhoon-name { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .typhoon-status { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: rgba(234, 67, 53, 0.2); color: var(--danger); }
+        .typhoon-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+        .typhoon-stat { text-align: center; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; }
+        .typhoon-stat .label { font-size: 10px; color: var(--text-sec); }
+        .typhoon-stat .value { font-size: 14px; font-weight: 600; margin-top: 2px; }
+        .typhoon-regions { font-size: 12px; color: var(--text-sec); }
+
+        /* Weather Stats */
+        .weather-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .stat-card {
+            text-align: center;
+            padding: 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        .stat-icon { font-size: 24px; margin-bottom: 8px; }
+        .stat-value { font-size: 24px; font-weight: 700; }
+        .stat-label { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+
+        /* City Weather Cards */
+        .city-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .city-card {
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .city-card:hover { background: var(--card-hover); }
+        .city-name { font-size: 13px; font-weight: 500; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+        .city-temp { font-size: 22px; font-weight: 700; }
+        .city-details { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+
+        /* Loading */
+        .loading { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text-sec); }
+        .loading::after { content: '加载中...'; }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main { grid-template-columns: 1fr; }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .weather-stats { grid-template-columns: repeat(2, 1fr); }
+            .city-grid { grid-template-columns: 1fr; }
+            .map-container { height: 350px; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <span class="logo-icon">🌬️</span>
+            <span>气象数据可视化</span>
+        </div>
+        <div class="header-right">
+            <span class="update-time" id="update-time">最后更新: --</span>
+            <button onclick="refreshData()" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">刷新</button>
+        </div>
+    </div>
+
+    <div class="main">
+        <!-- Left Column: Map and Charts -->
+        <div class="left-column">
+            <!-- Map Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🌏 东盟气象态势</span>
+                    <span class="card-badge badge-success" id="typhoon-badge">🌀 无活跃台风</span>
+                </div>
+                <div class="map-container">
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📊 温度分布</span>
+                    </div>
+                    <div id="temp-chart" class="chart-container"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">💧 湿度分布</span>
+                    </div>
+                    <div id="humidity-chart" class="chart-container"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🌧️ 降水量</span>
+                    </div>
+                    <div id="precip-chart" class="chart-container"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚠️ 预警统计</span>
+                    </div>
+                    <div id="alert-chart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Lists -->
+        <div class="right-column">
+            <!-- Weather Stats -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📈 实时概况</span>
+                </div>
+                <div class="weather-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">🌡️</div>
+                        <div class="stat-value" id="stat-temp">--°C</div>
+                        <div class="stat-label">平均温度</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💧</div>
+                        <div class="stat-value" id="stat-humidity">--%</div>
+                        <div class="stat-label">平均湿度</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🌬️</div>
+                        <div class="stat-value" id="stat-wind">--km/h</div>
+                        <div class="stat-label">平均风速</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-value" id="stat-alerts">--</div>
+                        <div class="stat-label">活跃预警</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typhoon List -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🌀 台风动态</span>
+                </div>
+                <div class="typhoon-list" id="typhoon-list">
+                    <div class="loading"></div>
+                </div>
+            </div>
+
+            <!-- Alert List -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">⚠️ 灾害预警</span>
+                </div>
+                <div class="alert-list" id="alert-list">
+                    <div class="loading"></div>
+                </div>
+            </div>
+
+            <!-- City Weather -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🌤️ 城市天气</span>
+                </div>
+                <div class="city-grid" id="city-grid">
+                    <div class="loading"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const API_BASE = 'http://localhost:8000';
+
+    // 初始化地图
+    const map = L.map('map').setView([15, 110], 5);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO',
+        maxZoom: 18
+    }).addTo(map);
+
+    // 城市标记
+    const cityMarkers = {};
+    const typhoonMarkers = [];
+
+    // 初始化图表
+    const tempChart = echarts.init(document.getElementById('temp-chart'));
+    const humidityChart = echarts.init(document.getElementById('humidity-chart'));
+    const precipChart = echarts.init(document.getElementById('precip-chart'));
+    const alertChart = echarts.init(document.getElementById('alert-chart'));
+
+    // 图表配置
+    const chartOption = {
+        backgroundColor: 'transparent',
+        textStyle: { color: '#9aa0a6' },
+        tooltip: { trigger: 'axis' },
+        grid: { left: 40, right: 20, top: 20, bottom: 30 },
+        xAxis: {
+            type: 'category',
+            axisLine: { lineStyle: { color: '#3c4043' } },
+            axisLabel: { color: '#9aa0a6', fontSize: 10 },
+            data: []
+        },
+        yAxis: {
+            type: 'value',
+            axisLine: { lineStyle: { color: '#3c4043' } },
+            axisLabel: { color: '#9aa0a6' },
+            splitLine: { lineStyle: { color: '#3c4043', opacity: 0.3 } }
+        },
+        series: [{
+            type: 'bar',
+            barWidth: '50%',
+            itemStyle: { borderRadius: [4, 4, 0, 0] }
+        }]
+    };
+
+    // 加载数据
+    async function loadMapData() {
+        try {
+            const resp = await fetch(`${API_BASE}/api/disaster/map-data`);
+            const data = await resp.json();
+
+            // 更新时间
+            document.getElementById('update-time').textContent = `最后更新: ${new Date().toLocaleTimeString()}`;
+
+            // 更新城市天气标记
+            updateCityMarkers(data.weather_points || []);
+
+            // 更新台风标记
+            updateTyphoonMarkers(data.typhoons || []);
+
+            // 更新预警
+            updateAlerts(data.alerts || {});
+
+            // 更新图表
+            updateCharts(data.weather_points || [], data.alerts || {});
+
+            // 更新统计
+            updateStats(data);
+
+            // 更新城市天气列表
+            updateCityGrid(data.weather_points || []);
+
+        } catch (e) {
+            console.error('加载数据失败:', e);
+        }
+    }
+
+    function updateCityMarkers(cities) {
+        // 清除旧标记
+        Object.values(cityMarkers).forEach(m => map.removeLayer(m));
+
+        cities.forEach(city => {
+            const temp = city.temperature || '--';
+            const color = temp > 35 ? '#ea4335' : temp > 30 ? '#fbbc04' : temp > 20 ? '#34a853' : '#4285f4';
+
+            const icon = L.divIcon({
+                html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${temp}°</div>`,
+                className: '',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            cityMarkers[city.id] = L.marker([city.lat, city.lon], { icon })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width:120px">
+                        <div style="font-size:16px;font-weight:600;margin-bottom:8px">${city.name}</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+                            <div>🌡️ ${city.temperature}°C</div>
+                            <div>💧 ${city.humidity}%</div>
+                            <div>🌬️ ${city.wind_speed}km/h</div>
+                            <div>🌧️ ${city.precipitation}mm</div>
+                        </div>
+                    </div>
+                `);
+        });
+    }
+
+    function updateTyphoonMarkers(typhoons) {
+        // 清除旧标记
+        typhoonMarkers.forEach(m => map.removeLayer(m));
+        typhoonMarkers.length = 0;
+
+        const badge = document.getElementById('typhoon-badge');
+        const typhoonList = document.getElementById('typhoon-list');
+
+        if (!typhoons || typhoons.length === 0) {
+            badge.textContent = '🌀 无活跃台风';
+            badge.className = 'card-badge badge-success';
+            typhoonList.innerHTML = '<div style="text-align:center;padding:20px;color:#9aa0a6">当前无活跃台风</div>';
+            return;
+        }
+
+        badge.textContent = `🌀 ${typhoons.length}个活跃台风`;
+        badge.className = 'card-badge badge-danger';
+
+        let listHtml = '';
+        typhoons.forEach(t => {
+            const intensityColor = t.intensity === 'TY' || t.intensity === 'STY' ? '#ea4335' : '#fbbc04';
+
+            // 添加地图标记
+            const icon = L.divIcon({
+                html: `<div style="background:${intensityColor};width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.4)">🌀</div>`,
+                className: '',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            const marker = L.marker([t.position.lat, t.position.lon], { icon })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width:150px">
+                        <div style="font-size:16px;font-weight:600;margin-bottom:8px">🌀 ${t.name}</div>
+                        <div style="font-size:12px">
+                            <div>强度: ${t.intensity}</div>
+                            <div>风速: ${t.max_wind_speed} km/h</div>
+                            <div>位置: ${t.position.lat}°N, ${t.position.lon}°E</div>
+                            <div>移动: ${t.move_direction || '未知'} ${t.move_speed || 0} km/h</div>
+                        </div>
+                    </div>
+                `);
+            typhoonMarkers.push(marker);
+
+            // 列表HTML
+            listHtml += `
+                <div class="typhoon-card">
+                    <div class="typhoon-header">
+                        <span class="typhoon-name">🌀 ${t.name} <small style="color:#9aa0a6;font-size:12px">${t.code}</small></span>
+                        <span class="typhoon-status">${t.intensity}</span>
+                    </div>
+                    <div class="typhoon-stats">
+                        <div class="typhoon-stat">
+                            <div class="label">风速</div>
+                            <div class="value">${t.max_wind_speed} km/h</div>
+                        </div>
+                        <div class="typhoon-stat">
+                            <div class="label">位置</div>
+                            <div class="value">${t.position.lat}°N</div>
+                        </div>
+                        <div class="typhoon-stat">
+                            <div class="label">移动</div>
+                            <div class="value">${t.move_speed || 0} km/h</div>
+                        </div>
+                    </div>
+                    <div class="typhoon-regions">影响区域: ${(t.impact_regions || []).join(', ')}</div>
+                </div>
+            `;
+        });
+
+        typhoonList.innerHTML = listHtml;
+
+        // 绘制预报路径
+        typhoons.forEach(t => {
+            if (t.forecast_track && t.forecast_track.length > 0) {
+                const pathCoords = [[t.position.lon, t.position.lat]];
+                t.forecast_track.forEach(p => pathCoords.push([p.lon, p.lat]));
+
+                const polyline = L.polyline(pathCoords, {
+                    color: '#ea4335',
+                    weight: 2,
+                    opacity: 0.7,
+                    dashArray: '5, 10'
+                }).addTo(map);
+                typhoonMarkers.push(polyline);
+            }
+        });
+    }
+
+    function updateAlerts(data) {
+        const alertList = document.getElementById('alert-list');
+        const alerts = data.alerts || [];
+
+        if (!alerts || alerts.length === 0) {
+            alertList.innerHTML = '<div style="text-align:center;padding:20px;color:#9aa0a6">暂无预警信息</div>';
+            return;
+        }
+
+        alertList.innerHTML = alerts.slice(0, 10).map(a => `
+            <div class="alert-item ${a.level}">
+                <div class="alert-title">⚠️ ${a.level_name}级 ${a.type_name}</div>
+                <div style="font-size:12px;margin:6px 0">${a.title}</div>
+                <div class="alert-meta">${a.source} · ${new Date(a.start_time).toLocaleDateString()}</div>
+            </div>
+        `).join('');
+    }
+
+    function updateCharts(cities, alerts) {
+        // 温度图表
+        const cityNames = cities.map(c => c.name);
+        const temps = cities.map(c => c.temperature);
+
+        tempChart.setOption({
+            ...chartOption,
+            xAxis: { ...chartOption.xAxis, data: cityNames },
+            series: [{
+                ...chartOption.series[0],
+                data: temps,
+                itemStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#ea4335' },
+                        { offset: 1, color: '#fbbc04' }
+                    ])
+                }
+            }]
+        });
+
+        // 湿度图表
+        const humidities = cities.map(c => c.humidity);
+        humidityChart.setOption({
+            ...chartOption,
+            xAxis: { ...chartOption.xAxis, data: cityNames },
+            series: [{
+                ...chartOption.series[0],
+                data: humidities,
+                itemStyle: { color: '#4285f4' }
+            }]
+        });
+
+        // 降水图表
+        const precips = cities.map(c => c.precipitation);
+        precipChart.setOption({
+            ...chartOption,
+            xAxis: { ...chartOption.xAxis, data: cityNames },
+            series: [{
+                ...chartOption.series[0],
+                data: precips,
+                itemStyle: { color: '#34a853' }
+            }]
+        });
+
+        // 预警统计图表
+        const byLevel = alerts.by_level || {};
+        alertChart.setOption({
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'item' },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 4, borderColor: '#1a2634', borderWidth: 2 },
+                label: { color: '#9aa0a6', fontSize: 11 },
+                data: [
+                    { value: byLevel.red || 0, name: '红色', itemStyle: { color: '#ea4335' } },
+                    { value: byLevel.orange || 0, name: '橙色', itemStyle: { color: '#fbbc04' } },
+                    { value: byLevel.yellow || 0, name: '黄色', itemStyle: { color: '#fcd34d' } },
+                    { value: byLevel.blue || 0, name: '蓝色', itemStyle: { color: '#4285f4' } },
+                ]
+            }]
+        });
+    }
+
+    function updateStats(data) {
+        const cities = data.weather_points || [];
+        const alerts = data.alerts || {};
+
+        if (cities.length > 0) {
+            const avgTemp = (cities.reduce((sum, c) => sum + (c.temperature || 0), 0) / cities.length).toFixed(1);
+            const avgHumidity = Math.round(cities.reduce((sum, c) => sum + (c.humidity || 0), 0) / cities.length);
+            const avgWind = (cities.reduce((sum, c) => sum + (c.wind_speed || 0), 0) / cities.length).toFixed(1);
+
+            document.getElementById('stat-temp').textContent = avgTemp + '°C';
+            document.getElementById('stat-humidity').textContent = avgHumidity + '%';
+            document.getElementById('stat-wind').textContent = avgWind + 'km/h';
+        }
+
+        document.getElementById('stat-alerts').textContent = alerts.total || 0;
+    }
+
+    function updateCityGrid(cities) {
+        const grid = document.getElementById('city-grid');
+        grid.innerHTML = cities.map(c => `
+            <div class="city-card" onclick="focusCity(${c.lat}, ${c.lon})">
+                <div class="city-name">${c.name}</div>
+                <div class="city-temp">${c.temperature}°C</div>
+                <div class="city-details">湿度 ${c.humidity}% · 风速 ${c.wind_speed}km/h</div>
+            </div>
+        `).join('');
+    }
+
+    function focusCity(lat, lon) {
+        map.setView([lat, lon], 8);
+        if (cityMarkers[cities.find(c => c.lat === lat && c.lon === lon)?.id]) {
+            // 触发弹出
+        }
+    }
+
+    function refreshData() {
+        loadMapData();
+    }
+
+    // 窗口大小变化时重绘图表
+    window.addEventListener('resize', () => {
+        tempChart.resize();
+        humidityChart.resize();
+        precipChart.resize();
+        alertChart.resize();
+    });
+
+    // 初始加载
+    loadMapData();
+
+    // 每5分钟自动刷新
+    setInterval(loadMapData, 5 * 60 * 1000);
+
+    // 全局变量供focusCity使用
+    window.cities = [];
+    </script>
+</body>
+</html>

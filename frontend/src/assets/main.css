@@ -1,0 +1,69 @@
+/**
+ * 全局样式
+ *
+ * 从原始 index.html 提取，统一管理 CSS 变量和基础样式
+ */
+
+/* CSS 变量 */
+:root {
+  --primary: #1a73e8;
+  --primary-dark: #1557b0;
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --text-sec: #5a6a7a;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+/* 重置 */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+#app {
+  height: 100vh;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* 链接重置 */
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* 图片 */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 通用按钮重置 */
+button {
+  font-family: inherit;
+}

@@ -1,13 +1,29 @@
 """
 灾害预警服务 - 台风路径、暴雨、洪涝等多灾种预警
-Phase 2: 接入真实预警数据和台风路径
 """
-import asyncio
-from typing import Optional, List, Dict
+
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+
 import httpx
-import json
-import re
+import structlog
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from app.core.constants import (
+    ALERT_LEVEL_ORDER,
+    CACHE_TTL_ALERTS,
+    CACHE_TTL_TYPHOONS,
+    MAX_ALERTS_RETURNED,
+    TYPHOON_INTENSITY_CODES,
+)
+
+logger = structlog.get_logger("services.disaster")
 
 
 class DisasterAlertService:
@@ -15,8 +31,26 @@ class DisasterAlertService:
 
     # 台风命名表（西太平洋）
     TYPHOON_NAMES = [
-        "珍珠", "蝴蝶", "琵琶", "风神", "海神", "凤凰", "烟花", "玉兔", "桃芝", "万宜",
-        "天兔", "帕布", "洛坦", "纳沙", "海棠", "尼格", "榕树", "天鸽", "帕卡", "珊瑚"
+        "珍珠",
+        "蝴蝶",
+        "琵琶",
+        "风神",
+        "海神",
+        "凤凰",
+        "烟花",
+        "玉兔",
+        "桃芝",
+        "万宜",
+        "天兔",
+        "帕布",
+        "洛坦",
+        "纳沙",
+        "海棠",
+        "尼格",
+        "榕树",
+        "天鸽",
+        "帕卡",
+        "珊瑚",
     ]
 
     # 中国灾害预警等级
@@ -27,24 +61,24 @@ class DisasterAlertService:
         "red": {"name": "红色", "level": 4, "desc": "特别严重"},
     }
 
-    def __init__(self):
-        self._http_client = httpx.AsyncClient(timeout=60.0)
-        self._alert_cache: Dict = {}
-        self._cache_time: Optional[datetime] = None
-        self._cache_ttl = timedelta(minutes=15)
-        self._typhoon_cache: Optional[Dict] = None
-        self._typhoon_cache_time: Optional[datetime] = None
-        self._typhoon_cache_ttl = timedelta(minutes=30)
+    def __init__(self) -> None:
+        self._http_client = httpx.AsyncClient(timeout=httpx.Timeout(30.0))
+        self._alert_cache: dict = {}
+        self._cache_time: datetime | None = None
+        self._cache_ttl = timedelta(seconds=CACHE_TTL_ALERTS)
+        self._typhoon_cache: dict | None = None
+        self._typhoon_cache_time: datetime | None = None
+        self._typhoon_cache_ttl = timedelta(seconds=CACHE_TTL_TYPHOONS)
 
     async def close(self):
         await self._http_client.aclose()
 
-    def _is_cache_valid(self, cache_time: Optional[datetime], ttl: timedelta) -> bool:
+    def _is_cache_valid(self, cache_time: datetime | None, ttl: timedelta) -> bool:
         if not cache_time:
             return False
         return datetime.now() - cache_time < ttl
 
-    async def get_typhoon_list(self) -> List[Dict]:
+    async def get_typhoon_list(self) -> list[dict]:
         """获取当前活跃台风列表 - 接入JMA/Real台风数据"""
         # 检查缓存
         if self._typhoon_cache and self._is_cache_valid(self._typhoon_cache_time, self._typhoon_cache_ttl):
@@ -57,29 +91,39 @@ class DisasterAlertService:
             # 方法1: 从NHC (美国国家飓风中心) 获取西太平洋数据
             typhoons = await self._fetch_nhc_tropical_storms()
         except Exception as e:
-            print(f"NHC数据获取失败: {e}")
+            logger.warning("nhc_fetch_failed", error=str(e))
 
         # 方法2: 从台风路径网获取数据
         if not typhoons:
             try:
                 typhoons = await self._fetch_typhoon_cnn_data()
             except Exception as e:
-                print(f"台风网数据获取失败: {e}")
+                logger.warning("typhoon_cnn_fetch_failed", error=str(e))
 
         # 如果都没有数据，返回模拟数据但标记为模拟
         if not typhoons:
             typhoons = self._get_mock_typhoon_data()
-            print("⚠️ 使用模拟台风数据，请配置真实数据源")
+            logger.warning("using_mock_typhoon_data")
         else:
-            print(f"✅ 获取到 {len(typhoons)} 个活跃台风")
+            logger.info("typhoon_list_fetched", count=len(typhoons))
 
         # 更新缓存
-        self._typhoon_cache = {"typhoons": typhoons, "source": "real" if typhoons != self._get_mock_typhoon_data() else "mock"}
+        is_real = typhoons != self._get_mock_typhoon_data()
+        self._typhoon_cache = {
+            "typhoons": typhoons,
+            "source": "real" if is_real else "mock",
+        }
         self._typhoon_cache_time = datetime.now()
 
         return typhoons
 
-    async def _fetch_nhc_tropical_storms(self) -> List[Dict]:
+    @retry(
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        reraise=True,
+    )
+    async def _fetch_nhc_tropical_storms(self) -> list[dict]:
         """从NHC获取活跃热带气旋"""
         # NHC提供JSON格式的活跃风暴数据
         url = "https://www.nhc.noaa.gov/CurrentStorms.json"
@@ -94,56 +138,56 @@ class DisasterAlertService:
                 # 只处理西太平洋区域的风暴 (ID以CP/WP开头)
                 storm_id = storm.get("id", "")
                 if storm_id.startswith(("WP", "CP", "SH")):
-                    storms.append({
-                        "id": storm_id,
-                        "name": storm.get("name", "未命名"),
-                        "code": storm.get("stormName", storm_id),
-                        "intl_code": storm.get("stormId", storm_id),
-                        "status": "active",
-                        "position": {
-                            "lat": storm.get("lat", 0),
-                            "lon": storm.get("lon", 0)
-                        },
-                        "intensity": self._nhc_category_to_abbrev(storm.get("category", "")),
-                        "max_wind_speed": storm.get("windSpeed", 0) * 1.852,  # knots to km/h
-                        "pressure": storm.get("pressure", 0),
-                        "movement": storm.get("movement", {}),
-                        "movement_dir": storm.get("direction", "Unknown"),
-                        "movement_speed": storm.get("speed", 0) * 1.852,
-                        "forecast_track": self._parse_nhc_forecast(storm.get("fcstLats", []), storm.get("fcstLons", [])),
-                        "impact_regions": self._estimate_impact_regions(storm.get("lat", 0), storm.get("lon", 0)),
-                        "source": "NHC",
-                        "created_at": datetime.now().isoformat(),
-                    })
+                    storms.append(
+                        {
+                            "id": storm_id,
+                            "name": storm.get("name", "未命名"),
+                            "code": storm.get("stormName", storm_id),
+                            "intl_code": storm.get("stormId", storm_id),
+                            "status": "active",
+                            "position": {"lat": storm.get("lat", 0), "lon": storm.get("lon", 0)},
+                            "intensity": self._nhc_category_to_abbrev(storm.get("category", "")),
+                            "max_wind_speed": storm.get("windSpeed", 0) * 1.852,  # knots to km/h
+                            "pressure": storm.get("pressure", 0),
+                            "movement": storm.get("movement", {}),
+                            "movement_dir": storm.get("direction", "Unknown"),
+                            "movement_speed": storm.get("speed", 0) * 1.852,
+                            "forecast_track": self._parse_nhc_forecast(
+                                storm.get("fcstLats", []),
+                                storm.get("fcstLons", []),
+                            ),
+                            "impact_regions": self._estimate_impact_regions(
+                                storm.get("lat", 0),
+                                storm.get("lon", 0),
+                            ),
+                            "source": "NHC",
+                            "created_at": datetime.now().isoformat(),
+                        }
+                    )
             return storms
         except Exception as e:
-            print(f"NHC API错误: {e}")
+            logger.warning("nhc_api_error", error=str(e))
             return []
 
     def _nhc_category_to_abbrev(self, category: str) -> str:
-        """NHC类别转换为缩写"""
-        categories = {
-            "Low": "TD",      # 热带低压
-            "Depression": "TD",  # 热带低压
-            "Storm": "TS",    # 热带风暴
-            "Typhoon": "TY",  # 台风
-            "Super Typhoon": "STY",  # 超强台风
-        }
-        return categories.get(category, "TS")
+        """NHC 类别转换为缩写"""
+        return TYPHOON_INTENSITY_CODES.get(category, "TS")
 
-    def _parse_nhc_forecast(self, lats: list, lons: list) -> List[Dict]:
+    def _parse_nhc_forecast(self, lats: list, lons: list) -> list[dict]:
         """解析NHC预报路径"""
         track = []
-        for i, (lat, lon) in enumerate(zip(lats or [], lons or [])):
-            track.append({
-                "hour": (i + 1) * 24,
-                "lat": lat,
-                "lon": lon,
-                "wind": 0  # NHC JSON不包含预报风速
-            })
+        for i, (lat, lon) in enumerate(zip(lats or [], lons or [], strict=False)):
+            track.append(
+                {
+                    "hour": (i + 1) * 24,
+                    "lat": lat,
+                    "lon": lon,
+                    "wind": 0,  # NHC JSON不包含预报风速
+                }
+            )
         return track
 
-    def _estimate_impact_regions(self, lat: float, lon: float) -> List[str]:
+    def _estimate_impact_regions(self, lat: float, lon: float) -> list[str]:
         """根据位置估算影响区域"""
         regions = []
         if 10 <= lat <= 25 and 105 <= lon <= 120:
@@ -159,12 +203,12 @@ class DisasterAlertService:
             regions.append("华南沿海")
         return regions if regions else ["西太平洋"]
 
-    async def _fetch_typhoon_cnn_data(self) -> List[Dict]:
+    async def _fetch_typhoon_cnn_data(self) -> list[dict]:
         """从台风实时监测获取数据"""
         # 这个数据源可能需要网页抓取，暂时返回空列表
         return []
 
-    def _get_mock_typhoon_data(self) -> List[Dict]:
+    def _get_mock_typhoon_data(self) -> list[dict]:
         """获取模拟台风数据（用于演示）"""
         return [
             {
@@ -192,7 +236,7 @@ class DisasterAlertService:
             }
         ]
 
-    async def get_typhoon_detail(self, typhoon_id: str) -> Optional[Dict]:
+    async def get_typhoon_detail(self, typhoon_id: str) -> dict | None:
         """获取台风详细信息"""
         typhoons = await self.get_typhoon_list()
         for t in typhoons:
@@ -200,7 +244,7 @@ class DisasterAlertService:
                 return t
         return None
 
-    async def get_typhoon_track_data(self, typhoon_id: str) -> Dict:
+    async def get_typhoon_track_data(self, typhoon_id: str) -> dict:
         """获取台风完整路径数据（用于地图可视化）"""
         typhoon = await self.get_typhoon_detail(typhoon_id)
         if not typhoon:
@@ -225,8 +269,7 @@ class DisasterAlertService:
                 for h in historical
             ],
             "forecast_track": [
-                {"lat": f["lat"], "lon": f["lon"], "hour": f["hour"], "wind": f.get("wind", 0)}
-                for f in forecast
+                {"lat": f["lat"], "lon": f["lon"], "hour": f["hour"], "wind": f.get("wind", 0)} for f in forecast
             ],
             "impact_radius": {
                 "radius_7": typhoon.get("radius_7", 0),
@@ -236,7 +279,7 @@ class DisasterAlertService:
             "source": typhoon.get("source", "未知"),
         }
 
-    async def get_regional_alerts(self, region: str = "guangxi") -> List[Dict]:
+    async def get_regional_alerts(self, region: str = "guangxi") -> list[dict]:
         """获取区域灾害预警列表"""
         # 检查缓存
         cache_key = f"alerts_{region}"
@@ -256,9 +299,11 @@ class DisasterAlertService:
 
         return alerts
 
-    async def _fetch_qweather_alerts(self, region: str) -> List[Dict]:
+    async def _fetch_qweather_alerts(self, region: str) -> list[dict]:
         """从和风天气API获取预警"""
-        from app.core.config import settings
+        from app.core.config import get_settings
+
+        settings = get_settings()
 
         if not settings.QWEATHER_API_KEY:
             return []
@@ -275,7 +320,7 @@ class DisasterAlertService:
             return []
 
         try:
-            url = f"https://devapi.qweather.com/v7/warning/now"
+            url = "https://devapi.qweather.com/v7/warning/now"
             params = {"location": city_code, "key": settings.QWEATHER_API_KEY}
             resp = await self._http_client.get(url, params=params)
             resp.raise_for_status()
@@ -283,23 +328,25 @@ class DisasterAlertService:
 
             alerts = []
             for item in data.get("warning", []):
-                alerts.append({
-                    "id": item.get("id", ""),
-                    "type": item.get("type", ""),
-                    "type_name": item.get("typeName", ""),
-                    "level": self._qweather_level_to_standard(item.get("level", "")),
-                    "level_name": item.get("levelName", item.get("level", "")),
-                    "title": item.get("title", ""),
-                    "content": item.get("text", ""),
-                    "start_time": item.get("pubTime", datetime.now().isoformat()),
-                    "end_time": (datetime.now() + timedelta(hours=24)).isoformat(),
-                    "affected_areas": [item.get("name", region)],
-                    "recommendations": item.get("precaution", "").split("。") if item.get("precaution") else [],
-                    "source": "和风天气",
-                })
+                alerts.append(
+                    {
+                        "id": item.get("id", ""),
+                        "type": item.get("type", ""),
+                        "type_name": item.get("typeName", ""),
+                        "level": self._qweather_level_to_standard(item.get("level", "")),
+                        "level_name": item.get("levelName", item.get("level", "")),
+                        "title": item.get("title", ""),
+                        "content": item.get("text", ""),
+                        "start_time": item.get("pubTime", datetime.now().isoformat()),
+                        "end_time": (datetime.now() + timedelta(hours=24)).isoformat(),
+                        "affected_areas": [item.get("name", region)],
+                        "recommendations": item.get("precaution", "").split("。") if item.get("precaution") else [],
+                        "source": "和风天气",
+                    }
+                )
             return alerts
         except Exception as e:
-            print(f"和风天气API错误: {e}")
+            logger.warning("qweather_api_error", error=str(e))
             return []
 
     def _qweather_level_to_standard(self, level: str) -> str:
@@ -316,7 +363,7 @@ class DisasterAlertService:
         }
         return mapping.get(level, "blue")
 
-    def _get_mock_alerts(self, region: str) -> List[Dict]:
+    def _get_mock_alerts(self, region: str) -> list[dict]:
         """获取模拟预警数据"""
         all_alerts = {
             "guangxi": [
@@ -388,7 +435,7 @@ class DisasterAlertService:
         }
         return all_alerts.get(region.lower(), [])
 
-    async def get_alert_summary(self, regions: List[str]) -> Dict:
+    async def get_alert_summary(self, regions: list[str]) -> dict:
         """获取多区域预警汇总"""
         all_alerts = []
         for region in regions:
@@ -396,8 +443,7 @@ class DisasterAlertService:
             all_alerts.extend([{**a, "region": region} for a in alerts])
 
         # 按等级排序
-        level_order = {"red": 4, "orange": 3, "yellow": 2, "blue": 1}
-        all_alerts.sort(key=lambda x: level_order.get(x["level"], 0), reverse=True)
+        all_alerts.sort(key=lambda x: ALERT_LEVEL_ORDER.get(x["level"], 0), reverse=True)
 
         return {
             "total": len(all_alerts),
@@ -408,18 +454,18 @@ class DisasterAlertService:
                 "blue": len([a for a in all_alerts if a["level"] == "blue"]),
             },
             "by_type": self._count_by_type(all_alerts),
-            "alerts": all_alerts[:20],
+            "alerts": all_alerts[:MAX_ALERTS_RETURNED],
             "update_time": datetime.now().isoformat(),
         }
 
-    def _count_by_type(self, alerts: List[Dict]) -> Dict:
+    def _count_by_type(self, alerts: list[dict]) -> dict:
         counts = {}
         for a in alerts:
             t = a["type"]
             counts[t] = counts.get(t, 0) + 1
         return counts
 
-    async def get_agriculture_alert(self, region: str = "guangxi") -> Dict:
+    async def get_agriculture_alert(self, region: str = "guangxi") -> dict:
         """获取农业气象灾害预警"""
         return {
             "region": region,
@@ -444,7 +490,7 @@ class DisasterAlertService:
             "update_time": datetime.now().isoformat(),
         }
 
-    async def get_logistics_alert(self, route: str = "nanning_hcmc") -> Dict:
+    async def get_logistics_alert(self, route: str = "nanning_hcmc") -> dict:
         """获取物流气象风险预警"""
         route_alerts = {
             "nanning_hcmc": {
@@ -462,7 +508,7 @@ class DisasterAlertService:
         }
         return route_alerts.get(route, {})
 
-    async def get_four_stage_warning(self, disaster_id: str) -> Dict:
+    async def get_four_stage_warning(self, disaster_id: str) -> dict:
         """递进式四阶段预警"""
         now = datetime.now()
         return {
@@ -503,10 +549,11 @@ class DisasterAlertService:
             "update_time": now.isoformat(),
         }
 
-    async def get_weather_map_data(self) -> Dict:
+    async def get_weather_map_data(self) -> dict:
         """获取气象地图数据（用于可视化）"""
         # 获取所有城市的天气数据
         from app.services.weather_service import WeatherService
+
         weather_service = WeatherService()
 
         cities_data = [
@@ -524,19 +571,21 @@ class DisasterAlertService:
         for city in cities_data:
             try:
                 weather = await weather_service.get_current_weather(city["lat"], city["lon"])
-                weather_points.append({
-                    "id": city["code"],
-                    "name": city["name"],
-                    "lat": city["lat"],
-                    "lon": city["lon"],
-                    "temperature": weather.get("temperature"),
-                    "humidity": weather.get("humidity"),
-                    "wind_speed": weather.get("wind_speed"),
-                    "precipitation": weather.get("precipitation"),
-                    "weather_code": weather.get("weather_code"),
-                })
+                weather_points.append(
+                    {
+                        "id": city["code"],
+                        "name": city["name"],
+                        "lat": city["lat"],
+                        "lon": city["lon"],
+                        "temperature": weather.get("temperature"),
+                        "humidity": weather.get("humidity"),
+                        "wind_speed": weather.get("wind_speed"),
+                        "precipitation": weather.get("precipitation"),
+                        "weather_code": weather.get("weather_code"),
+                    }
+                )
             except Exception as e:
-                print(f"获取{city['name']}天气失败: {e}")
+                logger.warning("city_weather_fetch_failed", city=city["name"], error=str(e))
 
         # 获取预警数据
         alert_summary = await self.get_alert_summary(["guangxi", "vietnam", "thailand"])
@@ -553,7 +602,7 @@ class DisasterAlertService:
 
 
 # 全局单例
-_disaster_service: Optional[DisasterAlertService] = None
+_disaster_service: DisasterAlertService | None = None
 
 
 def get_disaster_service() -> DisasterAlertService:
