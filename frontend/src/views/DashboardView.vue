@@ -7,6 +7,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import L from 'leaflet'
 import * as echarts from 'echarts'
+import AppHeader from '@/components/AppHeader.vue'
 import { useDisaster } from '@/composables/useDisaster'
 import type { WeatherPoint, Typhoon, AlertSummary, DisasterAlert } from '@/types'
 
@@ -286,18 +287,17 @@ onUnmounted(() => {
 
 <template>
   <div class="dashboard-view">
-    <header class="header">
-      <div class="logo">
-        <span class="logo-icon">🌬️</span>
-        <span>气象数据可视化</span>
-      </div>
-      <div class="header-right">
-        <span class="update-time">最后更新: {{ lastUpdate }}</span>
-        <button class="refresh-btn" @click="loadData">刷新</button>
-      </div>
-    </header>
+    <AppHeader title="气象数据可视化">
+      <template #right>
+        <div class="header-right">
+          <span class="update-time">最后更新: {{ lastUpdate }}</span>
+          <button class="refresh-btn" @click="loadData">刷新</button>
+        </div>
+      </template>
+    </AppHeader>
 
-    <div class="main-grid">
+    <div class="dashboard-content">
+      <div class="main-grid">
       <!-- 左栏：地图和图表 -->
       <div class="left-column">
         <div class="card">
@@ -430,6 +430,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -450,49 +451,44 @@ onUnmounted(() => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
-}
-
-.header {
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 20px;
+  height: 100vh;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.logo {
-  font-size: 18px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: 16px;
 }
-
-.logo-icon { font-size: 24px; }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .update-time {
-  font-size: 12px;
-  color: var(--text-sec);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .refresh-btn {
-  padding: 8px 16px;
-  background: var(--primary, #1a73e8);
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.2);
   color: white;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
   cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .main-grid {

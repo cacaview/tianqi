@@ -7,7 +7,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useI18n } from '@/composables/useI18n'
-import { CITIES } from '@/composables/useCities'
+import { CITIES, getCityList } from '@/composables/useCities'
 import { useWeather } from '@/composables/useWeather'
 import { useChat } from '@/composables/useChat'
 import { useDisaster } from '@/composables/useDisaster'
@@ -28,6 +28,7 @@ const { alerts, fetchAlerts } = useDisaster()
 
 const activeMobilePanel = ref('chat')
 const weatherCache = ref<Record<string, WeatherCurrent | null>>({})
+const loadingAllCities = ref(false)
 
 /** 选择城市 */
 async function handleSelectCity(cityId: string) {
@@ -37,6 +38,29 @@ async function handleSelectCity(cityId: string) {
     await fetchCurrent(city.lat, city.lon)
     weatherCache.value[cityId] = currentWeather.value
   }
+}
+
+/** 预加载所有城市的温度 */
+async function fetchAllCitiesWeather() {
+  loadingAllCities.value = true
+  const cityList = getCityList()
+
+  // 并发获取所有城市的天气
+  const promises = cityList.map(async (city) => {
+    try {
+      const response = await fetch(`/api/weather/current?latitude=${city.lat}&longitude=${city.lon}`)
+      if (response.ok) {
+        const data = await response.json()
+        weatherCache.value[city.id] = data
+      }
+    } catch (error) {
+      console.error(`Failed to fetch weather for ${city.id}:`, error)
+      weatherCache.value[city.id] = null
+    }
+  })
+
+  await Promise.all(promises)
+  loadingAllCities.value = false
 }
 
 /** 发送聊天消息 */
@@ -58,12 +82,28 @@ function handleMobileNav(panel: string) {
 onMounted(async () => {
   addWelcome(t.value.welcome)
 
-  // 加载默认城市天气
+  // 加载默认城市天气（立即显示）
   await handleSelectCity('nanning')
+
+  // 并发加载所有城市的温度（后台加载）
+  fetchAllCitiesWeather()
 
   // 加载预警
   fetchAlerts('guangxi')
+
+  // 修复聊天区域宽度问题
+  fixChatAreaWidth()
 })
+
+/** 修复聊天区域宽度 */
+function fixChatAreaWidth() {
+  const chatArea = document.querySelector('.chat-area') as HTMLElement
+  if (chatArea) {
+    // 使用固定宽度，因为calc在Grid布局中计算异常
+    chatArea.style.width = '920px'
+    chatArea.style.minWidth = '0'
+  }
+}
 
 // 语言切换时更新欢迎消息
 watch(() => store.currentLang, () => {
@@ -240,6 +280,7 @@ watch(() => store.currentLang, () => {
   display: flex;
   flex-direction: column;
   margin-left: 280px;
+  min-width: 0;
   height: 100%;
 }
 
@@ -274,28 +315,15 @@ watch(() => store.currentLang, () => {
   border-color: white;
 }
 
-/* 移动端面板 */
-.mobile-panel {
-  display: none;
+/* 移动端面板 - 桌面端完全隐藏 */
+.mobile-panel,
+.mobile-panel.active,
+.mobile-panel.chat-active,
+.mobile-panel.active.chat-active {
+  display: none !important;
 }
 
-.mobile-panel.active {
-  display: block;
-  position: fixed;
-  top: 56px;
-  left: 0;
-  right: 0;
-  bottom: 70px;
-  background: var(--bg);
-  overflow-y: auto;
-  padding: 16px;
-  z-index: 50;
-}
-
-.mobile-panel.chat-active {
-  display: flex;
-  flex-direction: column;
-}
+/* 移动端面板 - 移动端激活时显示（在媒体查询中定义） */
 
 /* 移动端天气卡片 */
 .mobile-weather-card {
@@ -363,16 +391,20 @@ watch(() => store.currentLang, () => {
     margin-left: 0;
   }
 
+  /* 移动端：隐藏所有移动端面板 */
   .mobile-panel {
-    display: none;
+    display: none !important;
   }
 
+  /* 移动端：仅显示激活的面板 */
   .mobile-panel.active {
-    display: block;
+    display: block !important;
   }
 
-  .mobile-panel.chat-active {
-    display: flex;
+  /* 移动端：聊天面板特殊处理 */
+  .mobile-panel.active.chat-active {
+    display: flex !important;
+    flex-direction: column;
   }
 }
 </style>
