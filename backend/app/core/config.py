@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     WOLFX_BASE_URL: str = "https://api.wolfx.jp"
     WOLFX_TIMEOUT: float = 15.0
 
+    # ── NASA FIRMS 火点数据 ──
+    NASA_FIRMS_API_KEY: str | None = None
+
     # ── Redis 缓存 ──
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_TTL_ALERTS: int = 900  # 15 分钟（秒）

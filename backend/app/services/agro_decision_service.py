@@ -82,10 +82,9 @@ class AgroDecisionService:
     async def pest_risk(self, latitude: float, longitude: float, language: str = "zh") -> dict:
         """病虫害风险评估 — 基于温度+湿度组合"""
         weather = await self._weather_service.get_current_weather(latitude, longitude)
-        current = weather.get("current", {})
 
-        temp = current.get("temperature", 0) or 0
-        humidity = current.get("humidity", 0) or 0
+        temp = weather.get("temperature", 0) or 0
+        humidity = weather.get("humidity", 0) or 0
 
         # 风险评估
         risk_level = "low"

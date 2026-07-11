@@ -98,3 +98,61 @@ async def test_http_client_reuse(air_quality_service: AirQualityService) -> None
     client2 = await air_quality_service._get_client()
     assert client1 is client2
     await air_quality_service.close()
+
+
+@pytest.mark.asyncio
+async def test_close_client(air_quality_service: AirQualityService) -> None:
+    """测试关闭客户端"""
+    client = await air_quality_service._get_client()
+    assert not client.is_closed
+    await air_quality_service.close()
+    assert client.is_closed
+
+
+@pytest.mark.asyncio
+async def test_close_client_when_not_initialized(air_quality_service: AirQualityService) -> None:
+    """测试关闭未初始化的客户端"""
+    await air_quality_service.close()
+    assert air_quality_service._client is None
+
+
+@pytest.mark.asyncio
+async def test_get_hourly_forecast_success(air_quality_service: AirQualityService) -> None:
+    """测试获取逐小时空气质量预报"""
+    mock_response = {
+        "hourly": {
+            "time": ["2024-01-01T00:00", "2024-01-01T01:00", "2024-01-01T02:00"],
+            "pm2_5": [12.0, 15.0, 18.0],
+            "pm10": [25.0, 28.0, 30.0],
+            "carbon_monoxide": [0.4, 0.5, 0.6],
+            "nitrogen_dioxide": [18.0, 20.0, 22.0],
+            "sulphur_dioxide": [3.0, 4.0, 5.0],
+            "ozone": [50.0, 55.0, 60.0],
+            "us_aqi": [45, 50, 55],
+        },
+        "timezone": "Asia/Shanghai",
+    }
+
+    with respx.mock:
+        respx.get("https://air-quality-api.open-meteo.com/v1/air-quality").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
+        result = await air_quality_service.get_hourly_forecast(22.82, 108.32, hours=3)
+
+    assert result["latitude"] == 22.82
+    assert result["longitude"] == 108.32
+    assert len(result["hourly"]) == 3
+    assert result["hourly"][0]["pm2_5"] == 12.0
+    assert result["hourly"][0]["us_aqi"] == 45
+    assert result["hourly"][1]["o3"] == 55.0
+
+
+@pytest.mark.asyncio
+async def test_get_hourly_forecast_http_error(air_quality_service: AirQualityService) -> None:
+    """测试获取逐小时预报 — HTTP错误"""
+    with respx.mock:
+        respx.get("https://air-quality-api.open-meteo.com/v1/air-quality").mock(
+            return_value=httpx.Response(500, text="Internal Server Error")
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await air_quality_service.get_hourly_forecast(22.82, 108.32)

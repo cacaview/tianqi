@@ -435,6 +435,20 @@ class DisasterAlertService:
         }
         return all_alerts.get(region.lower(), [])
 
+    async def get_alerts(self, region: str = "guangxi") -> dict:
+        """获取区域预警 — 返回字典格式，包含 alerts 列表"""
+        alerts = await self.get_regional_alerts(region)
+        return {
+            "alerts": alerts,
+            "total": len(alerts),
+            "by_level": {
+                "red": len([a for a in alerts if a["level"] == "red"]),
+                "orange": len([a for a in alerts if a["level"] == "orange"]),
+                "yellow": len([a for a in alerts if a["level"] == "yellow"]),
+                "blue": len([a for a in alerts if a["level"] == "blue"]),
+            },
+        }
+
     async def get_alert_summary(self, regions: list[str]) -> dict:
         """获取多区域预警汇总"""
         all_alerts = []

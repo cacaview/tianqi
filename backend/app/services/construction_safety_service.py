@@ -65,7 +65,7 @@ class ConstructionSafetyService:
         forecast = await self._weather_service.get_forecast(latitude, longitude, days=1)
         current = await self._weather_service.get_current_weather(latitude, longitude)
 
-        current_data = current.get("current", {})
+        current_data = current  # get_current_weather returns flat dict
         forecast_data = forecast.get("forecast", [])
         today = forecast_data[0] if forecast_data else {}
 

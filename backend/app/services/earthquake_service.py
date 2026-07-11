@@ -86,6 +86,12 @@ class EarthquakeService:
         wait=wait_exponential(multiplier=1, min=1, max=5),
         reraise=True,
     )
+    async def get_earthquakes(self, source: str = "cenc") -> dict:
+        """获取地震列表 — 别名方法，支持 usgs 等来源映射"""
+        source_map = {"usgs": "cenc", "cenc": "cenc", "jma": "jma"}
+        mapped_source = source_map.get(source.lower(), "cenc")
+        return await self.get_recent_earthquakes(mapped_source)
+
     async def get_recent_earthquakes(self, source: str = "cenc") -> dict:
         """
         获取近期地震列表。

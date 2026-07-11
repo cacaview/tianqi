@@ -126,7 +126,7 @@ class HealthIndexService:
         weather = await self._weather_service.get_current_weather(latitude, longitude)
         aqi_data = await self._air_quality_service.get_current(latitude, longitude)
 
-        current = weather.get("current", {})
+        current = weather  # get_current_weather returns flat dict
         aqi_current = aqi_data.get("current", {})
 
         # 计算四维度分数

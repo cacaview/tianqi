@@ -65,7 +65,7 @@ class JournalService:
         """创建日记条目 — 自动获取当日天气数据"""
         # 获取当前天气
         weather = await self._weather_service.get_current_weather(latitude, longitude)
-        current = weather.get("current", {})
+        current = weather  # get_current_weather returns flat dict
 
         # 创建条目
         entry = JournalEntry(

@@ -40,7 +40,7 @@ class HazeMonitorService:
     async def get_fire_hotspots(self, region: str = "sumatra", days: int = 7) -> dict:
         """获取火点热点数据 — NASA FIRMS API"""
         settings = get_settings()
-        api_key = settings.NASA_FIRMS_API_KEY
+        api_key = getattr(settings, "NASA_FIRMS_API_KEY", None)
 
         if not api_key:
             return {
